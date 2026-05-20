@@ -58,7 +58,7 @@ export class WordstatService {
     const phrasesByQuota = uniquePhrases.slice(0, countPhrasesByQuota);
     const remainingPhrases = uniquePhrases.slice(countPhrasesByQuota);
 
-    this.generateDynamics(
+    void this.generateDynamics(
       phrasesByQuota,
       token,
       quota.userInfo.limitPerSecond,
@@ -97,16 +97,16 @@ export class WordstatService {
         while (batch.length) {
           phrase = batch.shift()!;
 
-          const data = await yandexFakeRequest(phrase);
-          const findedPhrase = await this.wordstatRepository.getPhrase(
-            taskId,
-            phrase,
+          const data = await this.yandexWordstatRepository.getDynamics(
+            getDynamicsPayload(phrase),
+            token,
           );
+          const findedPhrase = await this.wordstatRepository.getPhrase(taskId, phrase);
 
           if (findedPhrase) {
             await this.wordstatRepository.addStatsForPhrase(
               findedPhrase.id,
-              data.dynamics,
+              mapDynamicsResponse(data),
             );
           }
         }
@@ -177,56 +177,50 @@ export class WordstatService {
   }
 }
 
-const yandexFakeRequest = async (
-  phrase: string,
-): Promise<{
-  dynamics: {
-    date: string;
-    count: number;
-  }[];
-}> => {
-  return await new Promise((resolve) =>
-    setTimeout(() => {
-      resolve({
-        dynamics: [
-          {
-            date: "2025-02-03",
-            count: 1910301,
-          },
-          {
-            date: "2025-02-10",
-            count: 1926557,
-          },
-          {
-            date: "2025-02-17",
-            count: 1905623,
-          },
-          {
-            date: "2025-02-24",
-            count: 1897645,
-          },
-          {
-            date: "2025-03-03",
-            count: 1879813,
-          },
-          {
-            date: "2025-03-10",
-            count: 1931583,
-          },
-          {
-            date: "2025-03-17",
-            count: 1933021,
-          },
-          {
-            date: "2025-03-24",
-            count: 1953561,
-          },
-          {
-            date: "2025-03-31",
-            count: 1909107,
-          },
-        ],
-      });
-    }, 10),
-  );
+
+
+const getDynamicsPayload = (phrase: string) => {
+  const folderId = process.env.YANDEX_FOLDER_ID;
+
+  if (!folderId) {
+    throw new CustomError("Не задан YANDEX_FOLDER_ID", 500);
+  }
+
+  const from = new Date();
+  from.setMonth(from.getMonth() - 12);
+
+  return {
+    phrase,
+    period: "PERIOD_WEEKLY" as const,
+    fromDate: from.toISOString(),
+    toDate: new Date().toISOString(),
+    devices: ["DEVICE_ALL"] as const,
+    folderId,
+  };
+};
+
+const mapDynamicsResponse = (data: unknown): { date: string; count: number }[] => {
+  if (!data || typeof data !== "object") return [];
+  const dynamicItems = (data as { dynamics?: unknown[]; data?: unknown[] }).dynamics
+    ?? (data as { data?: unknown[] }).data
+    ?? [];
+
+  if (!Array.isArray(dynamicItems)) return [];
+
+  return dynamicItems
+    .map((item) => {
+      if (!item || typeof item !== "object") return null;
+      const row = item as Record<string, unknown>;
+
+      const dateRaw = (row.date ?? row.fromDate ?? row.time ?? row.timestamp) as string | undefined;
+      const countRaw = (row.count ?? row.value ?? row.searches) as number | string | undefined;
+
+      if (!dateRaw || countRaw === undefined || countRaw === null) return null;
+
+      const count = Number(countRaw);
+      if (!Number.isFinite(count)) return null;
+
+      return { date: dateRaw.slice(0, 10), count };
+    })
+    .filter((item): item is { date: string; count: number } => Boolean(item));
 };

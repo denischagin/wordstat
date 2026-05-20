@@ -1,7 +1,7 @@
 import axios from "axios";
 
 export const yandexApi = axios.create({
-  baseURL: "https://api.wordstat.yandex.net/v1",
+  baseURL: "https://searchapi.api.cloud.yandex.net/v2/wordstat",
 });
 
 export const yandexLoginApi = axios.create({

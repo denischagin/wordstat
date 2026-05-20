@@ -8,8 +8,12 @@ export const useGetWordstat = () => {
       return wordstatService.getTasks();
     },
     refetchInterval: (query) => {
-      if (!query) return 2000;
-      return query.state?.data?.status === "pending" ? 2000 : false;
+      const tasks = query.state?.data;
+      if (!tasks || tasks.some((task) => task.status === "PENDING")) {
+        return 2000;
+      }
+
+      return false;
     },
   });
 };
