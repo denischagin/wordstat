@@ -2,18 +2,15 @@ import { useForm } from "react-hook-form";
 import {
   Box,
   Button,
-  CircularProgress,
   TextField,
   Typography,
 } from "@mui/material";
 import type { FC } from "react";
 import { usePostWordstat } from "@/api/hooks/use-post-wordstat";
-import { useGetUserInfo } from "@/api/hooks/use-get-user-info";
 import { SeoDynamicCsv } from "@/components/seo-dynamic/seo-dynamic-csv";
 
 interface SeoDynamicFormData {
   words: string;
-  tokens: string;
 }
 
 const getCountRowsFromText = (text: string) => {
@@ -28,7 +25,6 @@ export const SeoDynamicForm: FC = () => {
   const { register, handleSubmit, watch } = useForm<SeoDynamicFormData>({
     defaultValues: {
       words: "",
-      tokens: "",
     },
   });
 
@@ -46,7 +42,6 @@ export const SeoDynamicForm: FC = () => {
   const onSubmit = (data: SeoDynamicFormData) => {
     const formData = {
       phrases: data.words.split("\n"),
-      tokens: [data.tokens],
     };
 
     sendWordstat(formData);
